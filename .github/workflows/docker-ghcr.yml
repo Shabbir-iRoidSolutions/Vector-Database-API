@@ -19,11 +19,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
-        run: |
-          docker build \
-            --build-arg GIT_TOKEN=${{ secrets.PERSONAL_GH_PAT }} \
-            -f docker_container/Dockerfile \
-            -t ghcr.io/${{ github.repository_owner }}/vector-db-api:latest .
+        run: docker build -f docker_container/Dockerfile -t ghcr.io/${{ github.repository_owner }}/vector-db-api:latest .
 
       - name: Push Docker image
         run: docker push ghcr.io/${{ github.repository_owner }}/vector-db-api:latest
