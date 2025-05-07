@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone the repository
-RUN git clone https://github.com/Shabbir-iRoidSolutions/Vector-Database-API.git .
+# Copy local code into the container
+COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
