@@ -1,9 +1,7 @@
 from langchain.retrievers.document_compressors.chain_extract import LLMChainExtractor
 from langchain.retrievers import ContextualCompressionRetriever
-from langchain_openai import OpenAIEmbeddings
-from langchain_openai import ChatOpenAI
 from langchain_chroma import Chroma
-
+from llm_provider import get_embeddings_model, get_chat_model
 import logging
 logger = logging.getLogger(__name__)
 
@@ -25,21 +23,15 @@ def create_base_retriever(vectorstore, user_id, document_id_list, score_threshol
 
     return retriever
 
-def doc_retriever(query, user_id, document_id_list, score_threshold, k_value, openai_api_key, embeddings_model, vectorstore_path, chat_model):
+def doc_retriever(query, user_id, document_id_list, score_threshold, k_value, llm_provider, api_key, embedding_model, vectorstore_path, chat_model):
     try:
         if not query:
             raise ValueError("Query cannot be empty")
             
         # Initialize embeddings
-        embedding_function = OpenAIEmbeddings(
-            model=embeddings_model,
-            openai_api_key=openai_api_key
-        )
+        embedding_function = get_embeddings_model(llm_provider, embedding_model, api_key)
         
-        llm = ChatOpenAI(
-            model_name=chat_model, 
-            openai_api_key=openai_api_key
-        )
+        llm = get_chat_model(llm_provider, chat_model, api_key)
         
         # Initialize vector store
         vectorstore = Chroma(

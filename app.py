@@ -8,11 +8,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
-from langchain_chroma import Chroma
 from batch_embed import EmbeddingQueue
+from llm_provider import get_embeddings_model
 from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
+from delete_vectors import delete_vectors_from_db
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -39,12 +39,14 @@ def add_vectors():
         data = request.get_json()
         
         # Get embeddings and document from request
-        embeddings_data = data['embeddings']
+        user_id = data['user_id']
+        doc_id = data['doc_id']
         normalized_doc = data['normalized_doc']
         total_tokens_count = data['total_tokens_count']
         max_token_per_min = data['max_token_per_min']
-        user_id = data['user_id']
-        doc_id = data['doc_id']
+        llm_provider = data.get('llm_provider')
+        api_key = data['api_key']
+        embeddings_model = data['embeddings_model']
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
         split_docs = text_splitter.create_documents(normalized_doc)
@@ -56,16 +58,9 @@ def add_vectors():
         
         split_docs_length = len(split_documents_with_metadata)
         
-        embeddings = {
-            "model": embeddings_data['model'],
-            "openai_api_key": embeddings_data['openai_api_key']
-        }   
         
         # Create OpenAIEmbeddings instance
-        embedding_function = OpenAIEmbeddings(
-            model=embeddings['model'],
-            openai_api_key=embeddings['openai_api_key']
-        )
+        embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
 
         # Calculate batch size based on token count
         if total_tokens_count > max_token_per_min:
@@ -137,8 +132,9 @@ def retrieve_documents():
         document_id_list = data.get('document_id_list')
         score_threshold = data.get('score_threshold', 0.7)  # Default threshold
         k_value = data.get('k_value', 5)  # Default number of results
-        openai_api_key = data['openai_api_key']
-        embeddings_model = data['embeddings_model']
+        llm_provider = data.get('llm_provider', 'openai')
+        api_key = data['api_key']
+        embedding_model = data['embedding_model']
         chat_model = data['chat_model']
         
         # Call the document retriever
@@ -148,8 +144,9 @@ def retrieve_documents():
             document_id_list=document_id_list,
             score_threshold=score_threshold,
             k_value=k_value,
-            openai_api_key=openai_api_key,
-            embeddings_model=embeddings_model,
+            llm_provider=llm_provider,
+            api_key=api_key,
+            embedding_model=embedding_model,
             vectorstore_path=VECTORSTORE_PATH,
             chat_model=chat_model
         )
@@ -178,6 +175,47 @@ def retrieve_documents():
         }), 400
     except Exception as e:
         logger.error(f"Error in retrieve_documents: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+
+@app.route('/delete_vectors', methods=['POST'])
+def delete_vectors():
+    try:
+        data = request.get_json()
+        user_id = data['user_id']
+        file_related_data = data['file_related_data']
+        llm_provider = data.get('llm_provider')
+        api_key = data['api_key']
+        embedding_model = data['embedding_model']
+        
+        file_deletion_status=[]
+
+        for file_data in file_related_data:
+
+            # file_name = file_data["file_name"]
+            document_id = file_data["document_id"]
+            # document_type = file_data["document_type"]
+
+            if document_id is None:
+                return jsonify({'error': 'the document_id cannot be None'}), 400
+            
+            document_id=str(document_id)
+            if not document_id.isdigit():
+                return jsonify({'error': 'the document_id must be an integer'}), 400
+
+            document_id_list = [document_id]
+            # Delete vectors from the vector database
+            file_deletion_status.append(delete_vectors_from_db(user_id, document_id_list, VECTORSTORE_PATH, llm_provider, api_key, embedding_model))
+            
+        return jsonify({
+            "status": "success",
+            "message": "Vectors deleted successfully",
+            "file_deletion_status": file_deletion_status
+        }), 200
+    except Exception as e:
+        logger.error(f"Error in delete_vectors: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)
