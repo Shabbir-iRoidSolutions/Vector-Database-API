@@ -10,8 +10,14 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user
+RUN useradd -m -u 1000 appuser
+
 # Copy local code into the container
 COPY . .
+
+# Set proper permissions
+RUN chown -R appuser:appuser /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -19,6 +25,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Expose the port your app runs on
 EXPOSE 2100
+
+# Switch to non-root user
+USER appuser
 
 # Run the application
 CMD ["python", "app.py"]
