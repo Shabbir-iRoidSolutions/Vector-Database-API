@@ -8,7 +8,7 @@ services:
     ports:
       - "2100:2100"
     volumes:
-      - /var/www/VECTOR_DB:/var/www/VECTOR_DB
+      - /var/www/VECTOR_DB:/app/VECTOR_DB
     environment:
       - PYTHONUNBUFFERED=1
 

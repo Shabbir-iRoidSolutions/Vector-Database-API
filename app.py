@@ -25,12 +25,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Set the vector store path
-VECTORSTORE_PATH = "/var/www/VECTOR_DB"  # External path for vector storage
+# Configure paths
+BASE_DIR = Path(__file__).resolve().parent
+VECTORSTORE_PATH = os.path.join(BASE_DIR, "VECTOR_DB")  # This will be /app/VECTOR_DB in container
 
-# Ensure the vector store directory exists with proper permissions
+# Ensure the vector store directory exists
 os.makedirs(VECTORSTORE_PATH, exist_ok=True)
-os.chmod(VECTORSTORE_PATH, 0o755)
 
 logger.info(f"Vector store path: {VECTORSTORE_PATH}")
 
