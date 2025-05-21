@@ -23,6 +23,11 @@ RUN chown -R appuser:appuser /app
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Create external vector store directory with proper permissions
+RUN mkdir -p /var/www/VECTOR_DB && \
+    chown -R appuser:appuser /var/www/VECTOR_DB && \
+    chmod -R 755 /var/www/VECTOR_DB
+
 # Expose the port your app runs on
 EXPOSE 2100
 

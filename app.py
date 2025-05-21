@@ -25,9 +25,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure paths
-BASE_DIR = Path(__file__).resolve().parent
-VECTORSTORE_PATH = os.path.join(BASE_DIR, "VECTOR_DB")
+# Set the base directory and vector store path
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VECTORSTORE_PATH = "/var/www/VECTOR_DB"  # External path for vector storage
 
 logger.info(f"Vector store path: {VECTORSTORE_PATH}")
 
