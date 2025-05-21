@@ -3,7 +3,7 @@ import os
 import logging
 import sys
 from pathlib import Path
-
+import shutil
 # Third-party imports
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -253,6 +253,36 @@ def delete_vectors():
             "status": "error",
             "message": str(e)
         }), 400
+
+@app.route('/remove_all_vectors', methods=['POST'])
+def remove_all_vectors():
+    try:
+        # data = request.get_json()
+        logger.info("===== Remove All Vectors Request =====")
+        # logger.info(f"Request data: {data}")
+        logger.info("----------------------------------------------------------------")
+
+        if os.path.exists(VECTORSTORE_PATH):
+            shutil.rmtree(VECTORSTORE_PATH)
+            logging.info("Vector store directory removed successfully.")
+        else:
+            logging.info("Vector store directory does not exist. Skipping removal.")
+
+        os.makedirs(VECTORSTORE_PATH, exist_ok=True)
+        logging.info("Vector store directory recreated successfully.")
+        
+        return jsonify({
+            "status": "success",
+            "message": "All vectors removed successfully"
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in remove_all_vectors: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+
 
 if __name__ == '__main__':
     logger.info("Starting Flask application...")

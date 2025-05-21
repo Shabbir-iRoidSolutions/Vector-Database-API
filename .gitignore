@@ -51,3 +51,7 @@ htmlcov/
 .cache
 coverage.xml
 *.cover
+
+# Vector Database
+VECTOR_DB/*
+!VECTOR_DB/.gitkeep
