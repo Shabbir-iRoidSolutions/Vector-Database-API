@@ -77,9 +77,9 @@ def add_vectors():
         split_docs_length = len(split_documents_with_metadata)
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
-        
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
         os.makedirs(user_vector_store, exist_ok=True)
+        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
         # Create OpenAIEmbeddings instance
         embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
@@ -267,7 +267,6 @@ def delete_vectors():
 @app.route('/remove_all_vectors', methods=['POST'])
 def remove_all_vectors():
     try:
-        
         logger.info("===== Remove All Vectors Request =====")
         data = request.get_json()
         user_id = data['user_id']
@@ -277,12 +276,16 @@ def remove_all_vectors():
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
         os.makedirs(user_vector_store, exist_ok=True)
         
+        # Remove existing directory if it exists
         if os.path.exists(user_vector_store):
             shutil.rmtree(user_vector_store)
-            logging.info("Vector store directory removed successfully.")
-        else:
-            logging.info("Vector store directory does not exist. Skipping removal.")
-        logger.info("All vectors removed successfully from the vector store.")
+            logger.info("Vector store directory removed successfully.")
+        
+        # Create new directory with proper permissions
+        os.makedirs(user_vector_store, exist_ok=True)
+        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
+        
+        logger.info("Vector store directory recreated with proper permissions.")
         
         return jsonify({
             "status": "success",
