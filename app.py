@@ -14,6 +14,7 @@ from llm_provider import get_embeddings_model
 from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
 from delete_vectors import delete_vectors_from_db
+from langchain_chroma import Chroma
 
 # Configure logging
 logging.basicConfig(
@@ -76,6 +77,10 @@ def add_vectors():
         split_docs_length = len(split_documents_with_metadata)
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
+        
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        os.makedirs(user_vector_store, exist_ok=True)
+        
         # Create OpenAIEmbeddings instance
         embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
         logger.info(f"Embedding function created: {embedding_function}")
@@ -90,7 +95,7 @@ def add_vectors():
         # Initialize and start the queue
         embedding_queue = EmbeddingQueue(
             max_tokens_per_min=max_token_per_min,
-            vectorstore_path=VECTORSTORE_PATH,
+            vectorstore_path=user_vector_store,
             embeddings=embedding_function,
             max_workers=3
         )
@@ -161,6 +166,8 @@ def retrieve_documents():
         api_key = data['api_key']
         embedding_model = data['embedding_model']
         chat_model = data['chat_model']
+
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
         
         logger.info("Starting document retrieval...")
         # Call the document retriever
@@ -173,7 +180,7 @@ def retrieve_documents():
             llm_provider=llm_provider,
             api_key=api_key,
             embedding_model=embedding_model,
-            vectorstore_path=VECTORSTORE_PATH,
+            vectorstore_path=user_vector_store,
             chat_model=chat_model
         )
         
@@ -223,7 +230,7 @@ def delete_vectors():
         embedding_model = data['embedding_model']
         
         file_deletion_status=[]
-
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
         for file_data in file_related_data:
             document_id = file_data["document_id"]
             logger.info(f"Processing document ID: {document_id}")
@@ -240,7 +247,7 @@ def delete_vectors():
             document_id_list = [document_id]
             logger.info(f"Deleting vectors for document ID: {document_id}")
             # Delete vectors from the vector database
-            deletion_result = delete_vectors_from_db(user_id, document_id_list, VECTORSTORE_PATH, llm_provider, api_key, embedding_model)
+            deletion_result = delete_vectors_from_db(user_id, document_id_list, user_vector_store, llm_provider, api_key, embedding_model)
             file_deletion_status.append(deletion_result)
             logger.info(f"Deletion result: {deletion_result}")
             
@@ -260,19 +267,22 @@ def delete_vectors():
 @app.route('/remove_all_vectors', methods=['POST'])
 def remove_all_vectors():
     try:
-        # data = request.get_json()
+        
         logger.info("===== Remove All Vectors Request =====")
-        # logger.info(f"Request data: {data}")
+        data = request.get_json()
+        user_id = data['user_id']
+        logger.info(f"Request data: {data}")
         logger.info("----------------------------------------------------------------")
 
-        if os.path.exists(VECTORSTORE_PATH):
-            shutil.rmtree(VECTORSTORE_PATH)
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        os.makedirs(user_vector_store, exist_ok=True)
+        
+        if os.path.exists(user_vector_store):
+            shutil.rmtree(user_vector_store)
             logging.info("Vector store directory removed successfully.")
         else:
             logging.info("Vector store directory does not exist. Skipping removal.")
-
-        os.makedirs(VECTORSTORE_PATH, exist_ok=True)
-        logging.info("Vector store directory recreated successfully.")
+        logger.info("All vectors removed successfully from the vector store.")
         
         return jsonify({
             "status": "success",
