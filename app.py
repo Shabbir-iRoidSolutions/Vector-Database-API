@@ -78,8 +78,8 @@ def add_vectors():
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        os.makedirs(user_vector_store, exist_ok=True)
-        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
+        # os.makedirs(user_vector_store, exist_ok=True)
+        # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
         # Create OpenAIEmbeddings instance
         embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
@@ -281,9 +281,9 @@ def remove_all_vectors():
             shutil.rmtree(user_vector_store)
             logger.info("Vector store directory removed successfully.")
         
-        # Create new directory with proper permissions
-        os.makedirs(user_vector_store, exist_ok=True)
-        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
+        # # Create new directory with proper permissions
+        # os.makedirs(user_vector_store, exist_ok=True)
+        # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
         logger.info("Vector store directory recreated with proper permissions.")
         
