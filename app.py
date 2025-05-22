@@ -279,14 +279,21 @@ def remove_all_vectors():
 
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
         try:
-            if os.makedirs(user_vector_store, exist_ok=True):
+            # Check if directory exists before proceeding
+            if os.path.exists(user_vector_store):
                 delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
-                logger.info("Vector store directory recreated with proper permissions.")
-            
+                logger.info("Old vectors deleted successfully from vector store.")
                 return jsonify({
                     "status": "success",
                     "message": "All old vectors of same model removed successfully"
                 }), 200
+            else:
+                logger.info("No existing vector store found for this model.")
+                return jsonify({
+                    "status": "success",
+                    "message": "No existing vectors found for this model"
+                }), 200
+                
         except Exception as e:
             logger.error(f"Error in remove_all_vectors: {str(e)}")
             return jsonify({
@@ -294,18 +301,6 @@ def remove_all_vectors():
                 "message": str(e)
             }), 400
             
-            
-        # Remove existing directory if it exists
-        # if os.path.exists(user_vector_store):
-        #     shutil.rmtree(user_vector_store)
-        #     logger.info("Vector store directory removed successfully.")
-        
-        # # Create new directory with proper permissions
-        # os.makedirs(user_vector_store, exist_ok=True)
-        # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
-        
-        
-        
     except Exception as e:
         logger.error(f"Error in remove_all_vectors: {str(e)}")
         return jsonify({
