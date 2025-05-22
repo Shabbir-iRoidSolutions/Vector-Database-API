@@ -20,7 +20,7 @@ COPY . .
 RUN chown -R appuser:appuser /app && \
     mkdir -p /app/VECTOR_DB && \
     chown -R appuser:appuser /app/VECTOR_DB && \
-    chmod -R 755 /app/VECTOR_DB
+    chmod -R 777 /app/VECTOR_DB
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \

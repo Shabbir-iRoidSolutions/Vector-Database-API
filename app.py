@@ -274,7 +274,7 @@ def remove_all_vectors():
         logger.info("----------------------------------------------------------------")
 
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        os.makedirs(user_vector_store, exist_ok=True)
+        # os.makedirs(user_vector_store, exist_ok=True)
         
         # Remove existing directory if it exists
         if os.path.exists(user_vector_store):
