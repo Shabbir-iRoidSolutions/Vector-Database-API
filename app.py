@@ -278,15 +278,16 @@ def remove_all_vectors():
         logger.info("----------------------------------------------------------------")
 
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
-        if os.makedirs(user_vector_store, exist_ok=True):
-            delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
-            logger.info("Vector store directory recreated with proper permissions.")
-        
-            return jsonify({
-                "status": "success",
-                "message": "All vectors removed successfully"
-            }), 200
-        else:
+        try:
+            if os.makedirs(user_vector_store, exist_ok=True):
+                delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
+                logger.info("Vector store directory recreated with proper permissions.")
+            
+                return jsonify({
+                    "status": "success",
+                    "message": "All old vectors of same model removed successfully"
+                }), 200
+        except Exception as e:
             logger.error(f"Error in remove_all_vectors: {str(e)}")
             return jsonify({
                 "status": "error",
