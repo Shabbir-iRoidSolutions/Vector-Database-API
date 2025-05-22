@@ -38,5 +38,40 @@ def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_pro
         status=f"Error in delete_vectors_from_db for document id {document_id_list}: {str(e)}"
     
     return status
+
+
+def delete_all_vectors_from_db(user_id, vector_store_path, llm_provider, api_key, embedding_model):
+    
+    try:
+    
+        embeddings = get_embeddings_model(llm_provider, embedding_model, api_key)
+    
+        vectorstore = Chroma(
+            embedding_function=embeddings,
+            persist_directory=vector_store_path
+        )
+
+        metadata_filter = {
+            "$and": [
+                {"user_id": user_id}
+                ]
+            }
+
+        # Access the underlying Chroma collection directly
+        matching_docs = vectorstore._collection.get(where=metadata_filter)
+
+        # Extract the IDs of the matching documents
+        doc_ids_to_delete = matching_docs["ids"]  # Access the 'ids' key from the returned dictionary
+        # total_vectors_deleted = len(doc_ids_to_delete)
+
+        vectorstore.delete(ids=doc_ids_to_delete)
+        print("embeddings deleted successfully from vectorstore!!")
+        status=f"All documents successfully deleted from vector store"
+    
+    except Exception as e:
+        logger.error(f"Error in delete_all_vectors_from_db: {str(e)}")
+        status=f"Error in delete_all_vectors_from_db: {str(e)}"
+    
+    return status
     
     

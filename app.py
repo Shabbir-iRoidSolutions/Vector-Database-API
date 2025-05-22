@@ -13,7 +13,7 @@ from batch_embed import EmbeddingQueue
 from llm_provider import get_embeddings_model
 from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
-from delete_vectors import delete_vectors_from_db
+from delete_vectors import delete_vectors_from_db, delete_all_vectors_from_db
 from langchain_chroma import Chroma
 
 # Configure logging
@@ -77,7 +77,7 @@ def add_vectors():
         split_docs_length = len(split_documents_with_metadata)
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
         # os.makedirs(user_vector_store, exist_ok=True)
         # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
@@ -264,33 +264,46 @@ def delete_vectors():
             "message": str(e)
         }), 400
 
+
 @app.route('/remove_all_vectors', methods=['POST'])
 def remove_all_vectors():
     try:
         logger.info("===== Remove All Vectors Request =====")
         data = request.get_json()
         user_id = data['user_id']
+        embeddings_model = data['embeddings_model']
+        api_key = data['api_key']
+        llm_provider = data['llm_provider']
         logger.info(f"Request data: {data}")
         logger.info("----------------------------------------------------------------")
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        # os.makedirs(user_vector_store, exist_ok=True)
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        if os.makedirs(user_vector_store, exist_ok=True):
+            delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
+            logger.info("Vector store directory recreated with proper permissions.")
         
+            return jsonify({
+                "status": "success",
+                "message": "All vectors removed successfully"
+            }), 200
+        else:
+            logger.error(f"Error in remove_all_vectors: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400
+            
+            
         # Remove existing directory if it exists
-        if os.path.exists(user_vector_store):
-            shutil.rmtree(user_vector_store)
-            logger.info("Vector store directory removed successfully.")
+        # if os.path.exists(user_vector_store):
+        #     shutil.rmtree(user_vector_store)
+        #     logger.info("Vector store directory removed successfully.")
         
         # # Create new directory with proper permissions
         # os.makedirs(user_vector_store, exist_ok=True)
         # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
-        logger.info("Vector store directory recreated with proper permissions.")
         
-        return jsonify({
-            "status": "success",
-            "message": "All vectors removed successfully"
-        }), 200
         
     except Exception as e:
         logger.error(f"Error in remove_all_vectors: {str(e)}")
