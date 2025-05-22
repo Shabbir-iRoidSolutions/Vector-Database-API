@@ -51,20 +51,11 @@ def delete_all_vectors_from_db(user_id, vector_store_path, llm_provider, api_key
             persist_directory=vector_store_path
         )
 
-        metadata_filter = {
-            "$and": [
-                {"user_id": user_id}
-                ]
-            }
+        # Simplified where clause since we only have one condition
+        metadata_filter = {"user_id": user_id}
 
-        # Access the underlying Chroma collection directly
-        matching_docs = vectorstore._collection.get(where=metadata_filter)
-
-        # Extract the IDs of the matching documents
-        doc_ids_to_delete = matching_docs["ids"]  # Access the 'ids' key from the returned dictionary
-        # total_vectors_deleted = len(doc_ids_to_delete)
-
-        vectorstore.delete(ids=doc_ids_to_delete)
+        # Delete all documents matching the filter
+        vectorstore._collection.delete(where=metadata_filter)
         print("embeddings deleted successfully from vectorstore!!")
         status=f"All documents successfully deleted from vector store"
     
