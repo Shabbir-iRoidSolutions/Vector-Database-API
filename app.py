@@ -167,7 +167,7 @@ def retrieve_documents():
         embedding_model = data['embedding_model']
         chat_model = data['chat_model']
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
         logger.info("Starting document retrieval...")
         # Call the document retriever
@@ -230,7 +230,7 @@ def delete_vectors():
         embedding_model = data['embedding_model']
         
         file_deletion_status=[]
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         for file_data in file_related_data:
             document_id = file_data["document_id"]
             logger.info(f"Processing document ID: {document_id}")
