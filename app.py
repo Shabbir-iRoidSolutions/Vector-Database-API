@@ -77,9 +77,11 @@ def add_vectors():
         split_docs_length = len(split_documents_with_metadata)
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
-        # os.makedirs(user_vector_store, exist_ok=True)
-        # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        os.makedirs(user_vector_store, exist_ok=True)
+        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
+        
+        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
         
         # Create OpenAIEmbeddings instance
         embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
@@ -167,7 +169,8 @@ def retrieve_documents():
         embedding_model = data['embedding_model']
         chat_model = data['chat_model']
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
         logger.info("Starting document retrieval...")
         # Call the document retriever
@@ -230,7 +233,8 @@ def delete_vectors():
         embedding_model = data['embedding_model']
         
         file_deletion_status=[]
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         for file_data in file_related_data:
             document_id = file_data["document_id"]
             logger.info(f"Processing document ID: {document_id}")
@@ -277,29 +281,41 @@ def remove_all_vectors():
         logger.info(f"Request data: {data}")
         logger.info("----------------------------------------------------------------")
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
-        try:
-            # Check if directory exists before proceeding
-            if os.path.exists(user_vector_store):
-                delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
-                logger.info("Old vectors deleted successfully from vector store.")
-                return jsonify({
-                    "status": "success",
-                    "message": "All old vectors of same model removed successfully"
-                }), 200
-            else:
-                logger.info("No existing vector store found for this model.")
-                return jsonify({
-                    "status": "success",
-                    "message": "No existing vectors found for this model"
-                }), 200
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
+        
+        if os.path.exists(user_vector_store):
+            shutil.rmtree(user_vector_store)
+            logging.info("Vector store directory removed successfully.")
+        else:
+            logging.info("Vector store directory does not exist. Skipping removal.")
+
+        os.makedirs(user_vector_store, exist_ok=True)
+        os.chmod(user_vector_store, 0o777)
+        logging.info("Vector store directory recreated successfully.")
+        
+        # # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        # try:
+        #     # Check if directory exists before proceeding
+        #     if os.path.exists(user_vector_store):
+        #         delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
+        #         logger.info("Old vectors deleted successfully from vector store.")
+        #         return jsonify({
+        #             "status": "success",
+        #             "message": "All old vectors of same model removed successfully"
+        #         }), 200
+        #     else:
+        #         logger.info("No existing vector store found for this model.")
+        #         return jsonify({
+        #             "status": "success",
+        #             "message": "No existing vectors found for this model"
+        #         }), 200
                 
-        except Exception as e:
-            logger.error(f"Error in remove_all_vectors: {str(e)}")
-            return jsonify({
-                "status": "error",
-                "message": str(e)
-            }), 400
+        # except Exception as e:
+        #     logger.error(f"Error in remove_all_vectors: {str(e)}")
+        #     return jsonify({
+        #         "status": "error",
+        #         "message": str(e)
+        #     }), 400
             
     except Exception as e:
         logger.error(f"Error in remove_all_vectors: {str(e)}")
