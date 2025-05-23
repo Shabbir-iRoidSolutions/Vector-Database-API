@@ -293,7 +293,13 @@ def remove_all_vectors():
         os.chmod(user_vector_store, 0o777)
         logging.info("Vector store directory recreated successfully.")
         
-        # # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        return jsonify({
+                    "status": "success",
+                    "message": "All old vectors of same model removed successfully"
+                }), 200
+        
+        
+        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
         # try:
         #     # Check if directory exists before proceeding
         #     if os.path.exists(user_vector_store):
