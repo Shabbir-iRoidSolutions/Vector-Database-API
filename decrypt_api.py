@@ -12,6 +12,8 @@ def decrypt_api_key(api_key):
     key = os.getenv('AES_ENC_KEY').encode('utf-8')
     iv = os.getenv('AES_IV').encode('utf-8')
     
+    print(f"key: {key}")
+    print(f"iv: {iv}")
     
     # Create cipher
     cipher = Cipher(
