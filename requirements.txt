@@ -12,3 +12,4 @@ openai
 chromadb
 tenacity
 python-dotenv
+cryptography
