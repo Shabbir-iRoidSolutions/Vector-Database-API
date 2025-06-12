@@ -27,16 +27,12 @@ class EmbeddingQueue:
         wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     def add_documents_with_retry(self, vector_store, documents):
-        try:
-            return vector_store.add_documents(documents=documents)
-        except Exception as e:
-            logger.error(f"Error adding documents to vector store: {str(e)}")
-            raise
+        return vector_store.add_documents(documents=documents)
     
     def process_batch(self, batch, batch_number):
         try:
-            logger.info(f"Processing batch {batch_number} of {self.total_batches}")
-            logger.info(f"Batch size: {len(batch)} documents")
+            print(f"\nProcessing batch {batch_number} of {self.total_batches}")
+            print(f"Batch size: {len(batch)} documents")
             
             vector_store = Chroma(
                 embedding_function=self.embeddings,
@@ -57,15 +53,15 @@ class EmbeddingQueue:
             for future in futures:
                 future.result()
             
-            logger.info(f"Successfully processed batch {batch_number}")
+            print(f"✅ Successfully processed batch {batch_number}")
             
             # Set processing_complete if this is the last batch
             if batch_number == self.total_batches:
                 self.processing_complete = True
                 
         except Exception as e:
-            logger.error(f"Error processing batch {batch_number}: {str(e)}")
-            logger.info("Retrying in 15 seconds...")
+            print(f"❌ Error processing batch {batch_number}: {str(e)}")
+            print("Retrying in 15 seconds...")
             time.sleep(15)
             try:
                 vector_store = Chroma(
@@ -73,14 +69,14 @@ class EmbeddingQueue:
                     persist_directory=self.vectorstore_path
                 )
                 self.add_documents_with_retry(vector_store, batch)
-                logger.info(f"Successfully processed batch {batch_number} after retry")
+                print(f"✅ Successfully processed batch {batch_number} after retry")
                 
                 # Set processing_complete if this is the last batch
                 if batch_number == self.total_batches:
                     self.processing_complete = True
                     
             except Exception as e:
-                logger.error(f"Failed to process batch {batch_number} after retry: {str(e)}")
+                print(f"❌ Failed to process batch {batch_number} after retry: {str(e)}")
                 raise
     
     def queue_processor(self):
@@ -91,8 +87,8 @@ class EmbeddingQueue:
                 self.current_batch += 1
                 
                 if not self.queue.empty():
-                    logger.info(f"Waiting {45} seconds before processing next batch...")
-                    logger.info(f"Remaining batches in queue: {self.queue.qsize()}")
+                    print("\nWaiting 45 seconds before processing next batch...")
+                    print(f"Remaining batches in queue: {self.queue.qsize()}")
                     time.sleep(45)
                 
             except Empty:
@@ -100,14 +96,11 @@ class EmbeddingQueue:
                     break  # Exit the loop if all batches are processed
                 continue
             except Exception as e:
-                logger.error(f"Unexpected error in queue processor: {str(e)}")
+                print(f"Unexpected error in queue processor: {str(e)}")
                 self.stop_event.set()
                 raise
     
     def start_processing(self, documents, batch_size):
-        if not documents:
-            raise ValueError("No documents provided for processing")
-            
         self.total_batches = (len(documents) + batch_size - 1) // batch_size
         
         # Split documents into batches and add to queue
@@ -124,3 +117,54 @@ class EmbeddingQueue:
     def stop(self):
         self.stop_event.set()
         self.executor.shutdown(wait=True)
+
+
+def vectorestore_function(split_documents_with_metadata, user_vector_store_path, embeddings, max_token_per_min, total_tokens_count):
+    processor_thread = None  # Initialize processor_thread as None
+    embedding_queue = None   # Initialize embedding_queue as None
+    try:
+        split_docs_length = len(split_documents_with_metadata)
+        
+        if total_tokens_count > max_token_per_min:
+            batch_size = split_docs_length // ((total_tokens_count // max_token_per_min) + 1)
+        else:
+            batch_size = split_docs_length
+        
+        logger.info(f"Calculated batch size: {batch_size}")
+        
+        # Initialize and start the queue
+        embedding_queue = EmbeddingQueue(
+            max_tokens_per_min=max_token_per_min,
+            vectorstore_path=user_vector_store_path,
+            embeddings=embeddings,
+            max_workers=3
+        )
+
+        try:
+            logger.info("Starting document processing...")
+            processor_thread = embedding_queue.start_processing(split_documents_with_metadata, batch_size)
+            processor_thread.join()  # Wait for all processing to complete
+        
+            if embedding_queue.processing_complete:
+                logger.info("Processing completed successfully")
+                return "success", "All documents have been processed and stored in the vector database"
+            logger.warning("Processing did not complete successfully")
+            return "error", "Processing was not completed successfully"
+            
+        except KeyboardInterrupt:
+            logger.warning("Processing interrupted by user")
+            embedding_queue.stop()
+            processor_thread.join()
+            return "error", "Processing was interrupted"
+        except Exception as e:
+            logger.error(f"Error during processing: {str(e)}")
+            embedding_queue.stop()
+            processor_thread.join()
+            return "error", f"Error during processing: {str(e)}"
+        
+    except ValueError as e:
+        logger.error(f"Validation error: {str(e)}")
+        return "error", str(e)
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return "error", str(e)

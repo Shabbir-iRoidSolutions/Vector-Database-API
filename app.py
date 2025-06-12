@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from batch_embed import EmbeddingQueue
+from batch_embed import vectorestore_function
 from llm_provider import get_embeddings_model
 from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
@@ -77,74 +77,28 @@ def add_vectors():
         split_docs_length = len(split_documents_with_metadata)
         logger.info(f"Split documents with metadata length: {split_docs_length}")
         
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        os.makedirs(user_vector_store, exist_ok=True)
-        os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
-        
-        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        # os.makedirs(user_vector_store, exist_ok=True)
+        # os.chmod(user_vector_store, 0o777)  # Give full permissions to ensure write access
         
         # Create OpenAIEmbeddings instance
         embedding_function = get_embeddings_model(llm_provider, embeddings_model, api_key)
         logger.info(f"Embedding function created: {embedding_function}")
 
-        # Calculate batch size based on token count
-        if total_tokens_count > max_token_per_min:
-            batch_size = split_docs_length // ((total_tokens_count // max_token_per_min) + 1)
+        status, message = vectorestore_function(split_documents_with_metadata, user_vector_store, embedding_function, max_token_per_min, total_tokens_count)
+        
+        if status == "success":
+            return jsonify({
+                "status": "success",
+                "message": message
+            }), 200
         else:
-            batch_size = split_docs_length
-        logger.info(f"Calculated batch size: {batch_size}")
-        
-        # Initialize and start the queue
-        embedding_queue = EmbeddingQueue(
-            max_tokens_per_min=max_token_per_min,
-            vectorstore_path=user_vector_store,
-            embeddings=embedding_function,
-            max_workers=3
-        )
-        logger.info("Embedding queue initialized")
-
-        try:
-            logger.info("Starting document processing...")
-            processor_thread = embedding_queue.start_processing(split_documents_with_metadata, batch_size)
-            processor_thread.join()  # Wait for all processing to complete
-            
-            if embedding_queue.processing_complete:
-                logger.info("Processing completed successfully")
-                return jsonify({
-                    "status": "success",
-                    "message": "All documents have been processed and stored in the vector database"
-                }), 200
-            logger.warning("Processing did not complete successfully")
             return jsonify({
                 "status": "error",
-                "message": "Processing was not completed successfully"
+                "message": message
             }), 500
-            
-        except KeyboardInterrupt:
-            logger.warning("Processing interrupted by user")
-            embedding_queue.stop()
-            processor_thread.join()
-            return jsonify({
-                "status": "error",
-                "message": "Processing was interrupted"
-            }), 500
-        except Exception as e:
-            logger.error(f"Error during processing: {str(e)}")
-            embedding_queue.stop()
-            processor_thread.join()
-            return jsonify({
-                "status": "error",
-                "message": f"Error during processing: {str(e)}"
-            }), 500
-        
-    except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 400
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error in add_vectors: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)
@@ -169,8 +123,7 @@ def retrieve_documents():
         embedding_model = data['embedding_model']
         chat_model = data['chat_model']
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
         logger.info("Starting document retrieval...")
         # Call the document retriever
@@ -231,31 +184,19 @@ def delete_vectors():
         llm_provider = data.get('llm_provider')
         api_key = data['api_key']
         embedding_model = data['embedding_model']
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
-        file_deletion_status=[]
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
-        for file_data in file_related_data:
-            document_id = file_data["document_id"]
-            logger.info(f"Processing document ID: {document_id}")
-
-            if document_id is None:
-                logger.error("Error: document_id is None")
-                return jsonify({'error': 'the document_id cannot be None'}), 400
-            
-            document_id=str(document_id)
-            if not document_id.isdigit():
-                logger.error("Error: document_id is not an integer")
-                return jsonify({'error': 'the document_id must be an integer'}), 400
-
-            document_id_list = [document_id]
-            logger.info(f"Deleting vectors for document ID: {document_id}")
-            # Delete vectors from the vector database
-            deletion_result = delete_vectors_from_db(user_id, document_id_list, user_vector_store, llm_provider, api_key, embedding_model)
-            file_deletion_status.append(deletion_result)
-            logger.info(f"Deletion result: {deletion_result}")
-            
-        logger.info("All vectors deleted successfully")
+        file_deletion_status = delete_vectors_from_db(
+            user_id=user_id,
+            document_id_list=file_related_data,
+            vector_store_path=user_vector_store,
+            llm_provider=llm_provider,
+            api_key=api_key,
+            embedding_model=embedding_model
+        )
+        
+        logger.info(f"File deletion status: {file_deletion_status}")
+        
         return jsonify({
             "status": "success",
             "message": "Vectors deleted successfully",
@@ -264,7 +205,8 @@ def delete_vectors():
     except Exception as e:
         logger.error(f"Error in delete_vectors: {str(e)}")
         return jsonify({
-            "status": "error",
+            "status": "success",
+            "file_deletion_status": file_deletion_status if file_deletion_status else data,
             "message": str(e)
         }), 400
 
@@ -281,47 +223,29 @@ def remove_all_vectors():
         logger.info(f"Request data: {data}")
         logger.info("----------------------------------------------------------------")
 
-        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}")
-        
-        if os.path.exists(user_vector_store):
-            shutil.rmtree(user_vector_store)
-            logging.info("Vector store directory removed successfully.")
-        else:
-            logging.info("Vector store directory does not exist. Skipping removal.")
-
-        os.makedirs(user_vector_store, exist_ok=True)
-        os.chmod(user_vector_store, 0o777)
-        logging.info("Vector store directory recreated successfully.")
-        
-        return jsonify({
+        user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
+        try:
+            # Check if directory exists before proceeding
+            if os.path.exists(user_vector_store):
+                delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
+                logger.info("Old vectors deleted successfully from vector store.")
+                return jsonify({
                     "status": "success",
                     "message": "All old vectors of same model removed successfully"
                 }), 200
-        
-        
-        # user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
-        # try:
-        #     # Check if directory exists before proceeding
-        #     if os.path.exists(user_vector_store):
-        #         delete_all_vectors_from_db(user_id, user_vector_store, llm_provider, api_key, embeddings_model)
-        #         logger.info("Old vectors deleted successfully from vector store.")
-        #         return jsonify({
-        #             "status": "success",
-        #             "message": "All old vectors of same model removed successfully"
-        #         }), 200
-        #     else:
-        #         logger.info("No existing vector store found for this model.")
-        #         return jsonify({
-        #             "status": "success",
-        #             "message": "No existing vectors found for this model"
-        #         }), 200
+            else:
+                logger.info("No existing vector store found for this model.")
+                return jsonify({
+                    "status": "success",
+                    "message": "No existing vectors found for this model"
+                }), 200
                 
-        # except Exception as e:
-        #     logger.error(f"Error in remove_all_vectors: {str(e)}")
-        #     return jsonify({
-        #         "status": "error",
-        #         "message": str(e)
-        #     }), 400
+        except Exception as e:
+            logger.error(f"Error in remove_all_vectors: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 400
             
     except Exception as e:
         logger.error(f"Error in remove_all_vectors: {str(e)}")
