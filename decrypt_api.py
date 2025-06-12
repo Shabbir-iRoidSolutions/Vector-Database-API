@@ -15,6 +15,8 @@ def decrypt_api_key(api_key):
     print(f"key: {key}")
     print(f"iv: {iv}")
     
+    print(f"Key length: {len(key)} bytes")  # should be 16, 24, or 32
+    print(f"IV length: {len(iv)} bytes")    # should be exactly 16
     # Create cipher
     cipher = Cipher(
         algorithms.AES(key),
