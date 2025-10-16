@@ -30,11 +30,18 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Install Qdrant binary
 USER root
-RUN mkdir -p /qdrant/storage /opt/qdrant && \
+RUN set -e; \
+    mkdir -p /qdrant/storage /opt/qdrant && \
     chown -R appuser:appuser /qdrant && \
     curl -fsSL -o /tmp/qdrant.tar.gz https://github.com/qdrant/qdrant/releases/latest/download/qdrant-x86_64-unknown-linux-gnu.tar.gz && \
-    tar -xzf /tmp/qdrant.tar.gz -C /opt/qdrant --strip-components=1 && \
-    ln -sf /opt/qdrant/qdrant /usr/local/bin/qdrant && \
+    tar -xzf /tmp/qdrant.tar.gz -C /opt/qdrant && \
+    if [ -x /opt/qdrant/qdrant ]; then \
+      ln -sf /opt/qdrant/qdrant /usr/local/bin/qdrant; \
+    elif [ -x /opt/qdrant/bin/qdrant ]; then \
+      ln -sf /opt/qdrant/bin/qdrant /usr/local/bin/qdrant; \
+    else \
+      echo "Qdrant binary not found after extract:"; ls -la /opt/qdrant; ls -la /opt/qdrant/bin || true; exit 1; \
+    fi && \
     rm /tmp/qdrant.tar.gz && \
     chmod +x /usr/local/bin/qdrant
 
