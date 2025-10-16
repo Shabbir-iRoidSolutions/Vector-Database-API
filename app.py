@@ -14,7 +14,6 @@ from llm_provider import get_embeddings_model
 from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
 from delete_vectors import delete_vectors_from_db, delete_all_vectors_from_db
-from langchain_chroma import Chroma
 
 # Configure logging
 logging.basicConfig(
