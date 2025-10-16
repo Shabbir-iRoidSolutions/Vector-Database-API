@@ -15,7 +15,6 @@ from doc_retrieval import doc_retriever
 from utils import format_docs, get_metadata_from_docs
 from delete_vectors import delete_vectors_from_db, delete_all_vectors_from_db
 from langchain_chroma import Chroma
-from decrypt_api import decrypt_api_key
 
 # Configure logging
 logging.basicConfig(
@@ -65,10 +64,6 @@ def add_vectors():
         llm_provider = data.get('llm_provider')
         api_key = data['api_key']
         embeddings_model = data['embeddings_model']
-        
-        if api_key:
-            api_key = decrypt_api_key(api_key)
-        logger.info(f"decrypted api_key: {api_key}")
         
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000)
         split_docs = text_splitter.create_documents(normalized_doc)
@@ -127,10 +122,6 @@ def retrieve_documents():
         api_key = data['api_key']
         embedding_model = data['embedding_model']
         chat_model = data['chat_model']
-
-        if api_key:
-            api_key = decrypt_api_key(api_key)
-        logger.info(f"decrypted api_key: {api_key}")
 
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
@@ -193,11 +184,6 @@ def delete_vectors():
         llm_provider = data.get('llm_provider')
         api_key = data['api_key']
         embedding_model = data['embedding_model']
-
-        if api_key:
-            api_key = decrypt_api_key(api_key)
-        logger.info(f"decrypted api_key: {api_key}")
-
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embedding_model}")
         
         file_deletion_status = delete_vectors_from_db(
@@ -236,10 +222,6 @@ def remove_all_vectors():
         llm_provider = data['llm_provider']
         logger.info(f"Request data: {data}")
         logger.info("----------------------------------------------------------------")
-
-        if api_key:
-            api_key = decrypt_api_key(api_key)
-        logger.info(f"decrypted api_key: {api_key}")
 
         user_vector_store = os.path.join(VECTORSTORE_PATH, f"{user_id}",f"{embeddings_model}")
         try:
