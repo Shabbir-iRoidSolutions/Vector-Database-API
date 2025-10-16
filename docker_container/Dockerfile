@@ -30,11 +30,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Install Qdrant binary
 USER root
-RUN mkdir -p /qdrant/storage && \
+RUN mkdir -p /qdrant/storage /opt/qdrant && \
     chown -R appuser:appuser /qdrant && \
-    curl -L -o /tmp/qdrant.zip https://github.com/qdrant/qdrant/releases/latest/download/qdrant-linux-x86_64.zip && \
-    unzip /tmp/qdrant.zip -d /usr/local/bin && \
-    rm /tmp/qdrant.zip && \
+    curl -fsSL -o /tmp/qdrant.tar.gz https://github.com/qdrant/qdrant/releases/latest/download/qdrant-x86_64-unknown-linux-gnu.tar.gz && \
+    tar -xzf /tmp/qdrant.tar.gz -C /opt/qdrant --strip-components=1 && \
+    ln -sf /opt/qdrant/qdrant /usr/local/bin/qdrant && \
+    rm /tmp/qdrant.tar.gz && \
     chmod +x /usr/local/bin/qdrant
 
 # Copy entrypoint that starts Qdrant and the API
