@@ -1,10 +1,12 @@
-from langchain_chroma import Chroma
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 import time
 from queue import Queue, Empty
 from threading import Thread, Event
 from concurrent.futures import ThreadPoolExecutor
 from tenacity import retry, stop_after_attempt, wait_exponential
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +15,7 @@ class EmbeddingQueue:
     def __init__(self, max_tokens_per_min=2000000, vectorstore_path=None, embeddings=None, max_workers=3):
         self.queue = Queue()
         self.max_tokens_per_min = max_tokens_per_min
-        self.vectorstore_path = vectorstore_path
+        self.vectorstore_path = vectorstore_path  # repurposed as collection_name
         self.embeddings = embeddings
         self.stop_event = Event()
         self.current_batch = 1
@@ -34,9 +36,12 @@ class EmbeddingQueue:
             print(f"\nProcessing batch {batch_number} of {self.total_batches}")
             print(f"Batch size: {len(batch)} documents")
             
-            vector_store = Chroma(
-                embedding_function=self.embeddings,
-                persist_directory=self.vectorstore_path
+            client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), api_key=os.getenv("QDRANT_API_KEY"))
+            vector_store = QdrantVectorStore.from_documents(
+                documents=[],  # initialize empty, we'll add via add_documents
+                embedding=self.embeddings,
+                client=client,
+                collection_name=self.vectorstore_path,
             )
             
             # Split batch into smaller sub-batches for parallel processing
@@ -64,9 +69,12 @@ class EmbeddingQueue:
             print("Retrying in 15 seconds...")
             time.sleep(15)
             try:
-                vector_store = Chroma(
-                    embedding_function=self.embeddings,
-                    persist_directory=self.vectorstore_path
+                client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), api_key=os.getenv("QDRANT_API_KEY"))
+                vector_store = QdrantVectorStore.from_documents(
+                    documents=[],
+                    embedding=self.embeddings,
+                    client=client,
+                    collection_name=self.vectorstore_path,
                 )
                 self.add_documents_with_retry(vector_store, batch)
                 print(f"✅ Successfully processed batch {batch_number} after retry")

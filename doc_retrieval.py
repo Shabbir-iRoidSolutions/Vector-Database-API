@@ -1,6 +1,7 @@
 from langchain.retrievers.document_compressors.chain_extract import LLMChainExtractor
 from langchain.retrievers import ContextualCompressionRetriever
-from langchain_chroma import Chroma
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 from llm_provider import get_embeddings_model, get_chat_model
 import logging
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ def create_base_retriever(vectorstore, user_id, document_id_list, score_threshol
 
     return retriever
 
-def doc_retriever(query, user_id, document_id_list, score_threshold, k_value, llm_provider, api_key, embedding_model, vectorstore_path, chat_model):
+def doc_retriever(query, user_id, document_id_list, score_threshold, k_value, llm_provider, api_key, embedding_model, collection_name, chat_model):
     try:
         if not query:
             raise ValueError("Query cannot be empty")
@@ -33,14 +34,15 @@ def doc_retriever(query, user_id, document_id_list, score_threshold, k_value, ll
         
         llm = get_chat_model(llm_provider, chat_model, api_key)
         
-        # Initialize vector store
-        vectorstore = Chroma(
-            embedding_function=embedding_function,
-            persist_directory=vectorstore_path
+        # Initialize vector store (Qdrant)
+        client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), api_key=os.getenv("QDRANT_API_KEY"))
+        vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=collection_name,
+            embedding=embedding_function,
         )
         
-        chunk_count = vectorstore._collection.count()
-        k_value = min(k_value, chunk_count)
+        # QdrantVectorStore does not expose a direct count the same way; keep k as provided
         
         # Create standard retriever
         standard_retriever = create_base_retriever(

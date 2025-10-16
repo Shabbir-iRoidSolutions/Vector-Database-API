@@ -2,13 +2,14 @@ version: '3.8'
 
 services:
   vector-db-api:
-    image: ghcr.io/blue-elephants-solutions-pte-ltd/vector-db-api:latest
+    image: ghcr.io/shabbir-iroidsolutions/vector-db-api:latest
     ports:
       - "2100:2100"
-    volumes:
-      - /var/www/VECTOR_DB:/app/VECTOR_DB
     environment:
       - PYTHONUNBUFFERED=1
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+    restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant
@@ -18,6 +19,7 @@ services:
       - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
     volumes:
       - ai-assistant-qdrant:/qdrant/storage
+    restart: unless-stopped
 
 volumes:
   ai-assistant-qdrant:

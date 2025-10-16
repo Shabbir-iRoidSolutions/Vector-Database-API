@@ -1,10 +1,11 @@
-from langchain_chroma import Chroma
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 import logging
 from llm_provider import get_embeddings_model
 
 logger = logging.getLogger(__name__)
 
-def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_provider, api_key, embedding_model):
+def delete_vectors_from_db(user_id, document_id_list, collection_name, llm_provider, api_key, embedding_model):
     
     file_deletion_status = []
     vectorstore = None
@@ -12,9 +13,11 @@ def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_pro
     try:
         # Initialize embeddings and vectorstore
         embeddings = get_embeddings_model(llm_provider, embedding_model, api_key)
-        vectorstore = Chroma(
-            embedding_function=embeddings,
-            persist_directory=vector_store_path
+        client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), api_key=os.getenv("QDRANT_API_KEY"))
+        vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=collection_name,
+            embedding=embeddings,
         )
         
         for file_data in document_id_list:
@@ -52,8 +55,20 @@ def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_pro
                     ]
                 }
 
-                matching_docs = vectorstore._collection.get(where=metadata_filter)
-                if not matching_docs["ids"]:
+                # Search by metadata filter; QdrantVectorStore uses metadata filters in similarity search,
+                # for explicit deletions we rely on delete filtering
+                matching_docs = vectorstore.client.scroll(
+                    collection_name=collection_name,
+                    with_payload=True,
+                    filter={
+                        "must": [
+                            {"key": "user_id", "match": {"value": user_id}},
+                            {"key": "doc_id", "match": {"value": document_id}},
+                        ]
+                    },
+                    limit=1
+                )
+                if not matching_docs[0]:
                     error_msg = f"No documents found with ID {document_id}"
                     logger.info(error_msg)
                     file_deletion_status.append({
@@ -64,8 +79,15 @@ def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_pro
                     })
                     continue
 
-                doc_ids_to_delete = matching_docs["ids"]
-                vectorstore.delete(ids=doc_ids_to_delete)
+                # Delete points by filter
+                vectorstore.client.delete(collection_name=collection_name, points_selector={
+                    "filter": {
+                        "must": [
+                            {"key": "user_id", "match": {"value": user_id}},
+                            {"key": "doc_id", "match": {"value": document_id}}
+                        ]
+                    }
+                })
                 
                 success_msg = f"Document id {document_id} successfully deleted from vector store"
                 logger.info(success_msg)
@@ -110,22 +132,26 @@ def delete_vectors_from_db(user_id, document_id_list, vector_store_path, llm_pro
     return file_deletion_status
 
 
-def delete_all_vectors_from_db(user_id, vector_store_path, llm_provider, api_key, embedding_model):
+def delete_all_vectors_from_db(user_id, collection_name, llm_provider, api_key, embedding_model):
     
     try:
     
         embeddings = get_embeddings_model(llm_provider, embedding_model, api_key)
-    
-        vectorstore = Chroma(
-            embedding_function=embeddings,
-            persist_directory=vector_store_path
+        client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"), api_key=os.getenv("QDRANT_API_KEY"))
+        vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name=collection_name,
+            embedding=embeddings,
         )
 
-        # Simplified where clause since we only have one condition
-        metadata_filter = {"user_id": user_id}
-
-        # Delete all documents matching the filter
-        vectorstore._collection.delete(where=metadata_filter)
+        # Delete all documents for this user via filter
+        vectorstore.client.delete(collection_name=collection_name, points_selector={
+            "filter": {
+                "must": [
+                    {"key": "user_id", "match": {"value": user_id}}
+                ]
+            }
+        })
         print("embeddings deleted successfully from vectorstore!!")
         status=f"All documents successfully deleted from vector store"
     
